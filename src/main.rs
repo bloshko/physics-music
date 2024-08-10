@@ -3,6 +3,7 @@ use bevy::prelude::*;
 mod camera;
 mod cursor_position;
 mod scanner;
+mod sound_object;
 mod ui;
 
 fn main() {
@@ -22,5 +23,6 @@ fn main() {
         .add_plugins(cursor_position::CursorPositionPlugin)
         .add_plugins(ui::UIPlugin)
         .add_plugins(scanner::ScannerPlugin)
+        .add_plugins(sound_object::SoundObjectPlugin)
         .run();
 }

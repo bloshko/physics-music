@@ -29,13 +29,13 @@ fn move_scanner_with_cursor(
     scanner_transform.translation = cursor_world_position.0.clone().extend(0.);
 }
 
-fn scan_from_left_to_right(mut q_scanner: Query<(&mut Transform, &Scanner)>) {
+fn scan_from_left_to_right(mut q_scanner: Query<(&mut Transform, &Scanner)>, time: Res<Time>) {
     let (mut transform, scanner) = q_scanner.single_mut();
 
     if transform.translation.x > scanner.scanning_boundaries.right {
         transform.translation.x = 0.;
     } else {
-        transform.translation.x = transform.translation.x + 1.;
+        transform.translation.x = transform.translation.x + 2.;
     }
 }
 

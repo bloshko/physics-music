@@ -11,7 +11,7 @@ fn setup_ui(mut commands: Commands) {
         TextBundle::from_section(
             "x: 0 y: 0",
             TextStyle {
-                font_size: 30.0,
+                font_size: 15.0,
                 ..default()
             },
         ),
