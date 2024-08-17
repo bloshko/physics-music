@@ -1,7 +1,9 @@
 use bevy::prelude::*;
+use bevy_rapier2d::prelude::*;
 
 mod camera;
 mod cursor_position;
+mod dsp;
 mod scanner;
 mod sound_object;
 mod ui;
@@ -19,6 +21,8 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(RapierPhysicsPlugin::<NoUserData>::pixels_per_meter(100.0))
+        .add_plugins(RapierDebugRenderPlugin::default())
         .add_plugins(camera::MainCameraPlugin)
         .add_plugins(cursor_position::CursorPositionPlugin)
         .add_plugins(ui::UIPlugin)

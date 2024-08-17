@@ -1,8 +1,9 @@
 use bevy::{
     color::palettes::basic::PURPLE, prelude::*, sprite::MaterialMesh2dBundle, window::PrimaryWindow,
 };
+use bevy_rapier2d::prelude::*;
 
-use crate::cursor_position::CursorWorldPosition;
+use crate::{cursor_position::CursorWorldPosition, sound_object::SoundObject};
 
 pub struct ScannerPlugin;
 
@@ -15,7 +16,7 @@ struct Boundaries {
 }
 
 #[derive(Component)]
-struct Scanner {
+pub struct Scanner {
     scanning_boundaries: Boundaries,
 }
 
@@ -30,12 +31,14 @@ fn move_scanner_with_cursor(
 }
 
 fn scan_from_left_to_right(mut q_scanner: Query<(&mut Transform, &Scanner)>, time: Res<Time>) {
+    let scanner_speed = 200.;
+
     let (mut transform, scanner) = q_scanner.single_mut();
 
     if transform.translation.x > scanner.scanning_boundaries.right {
         transform.translation.x = 0.;
     } else {
-        transform.translation.x = transform.translation.x + 2.;
+        transform.translation.x = transform.translation.x + scanner_speed * time.delta_seconds();
     }
 }
 
@@ -68,6 +71,8 @@ fn setup(
             },
             ..default()
         },
+        Collider::cuboid(2.5, scanner_height / 2.),
+        Sensor,
         Scanner {
             scanning_boundaries,
         },
