@@ -97,6 +97,18 @@ fn setup(
     // });
 }
 
+fn handle_clean_all_sound_objects(
+    mut commands: Commands,
+    q_sound_objects: Query<Entity, With<SoundObject>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
+) {
+    if keyboard.just_pressed(KeyCode::Backspace) {
+        for entity in q_sound_objects.iter() {
+            commands.entity(entity).despawn();
+        }
+    };
+}
+
 fn handle_pulse(
     time: Res<Time>,
     mut commands: Commands,
@@ -189,7 +201,12 @@ impl Plugin for SoundObjectPlugin {
             .add_systems(Startup, setup)
             .add_systems(
                 Update,
-                (spawn_on_click, handle_scanner_collision, handle_pulse),
+                (
+                    spawn_on_click,
+                    handle_scanner_collision,
+                    handle_pulse,
+                    handle_clean_all_sound_objects,
+                ),
             );
     }
 }
