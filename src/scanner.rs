@@ -71,7 +71,7 @@ fn setup(
             },
             ..default()
         },
-        Collider::cuboid(2.5, scanner_height / 2.),
+        Collider::cuboid(0.5, 0.5),
         Sensor,
         Scanner {
             scanning_boundaries,

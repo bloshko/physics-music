@@ -51,11 +51,11 @@ fn spawn_on_click(
     mut commands: Commands,
     sound_object_handles: Res<SoundObjectHandles>,
     cursor_position: Res<cursor_position::CursorWorldPosition>,
-    buttons: Res<ButtonInput<MouseButton>>,
+    keyboard: Res<ButtonInput<KeyCode>>,
 ) {
     let position = cursor_position.0;
 
-    if buttons.just_pressed(MouseButton::Left) {
+    if keyboard.just_pressed(KeyCode::KeyZ) || keyboard.just_pressed(KeyCode::KeyC) {
         commands.spawn((
             MaterialMesh2dBundle {
                 mesh: sound_object_handles.mesh_handle.clone().into(),
@@ -89,12 +89,12 @@ fn setup(
         material_handle: material.clone().into(),
     });
 
-    let audio_handle = assets.add(DspAudio { frequency: 440. });
-
-    commands.spawn(AudioSourceBundle {
-        source: audio_handle,
-        ..default()
-    });
+    // let audio_handle = assets.add(DspAudio { frequency: 440. });
+    //
+    // commands.spawn(AudioSourceBundle {
+    //     source: audio_handle,
+    //     ..default()
+    // });
 }
 
 fn handle_pulse(
