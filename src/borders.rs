@@ -1,6 +1,4 @@
-use bevy::{
-    color::palettes::css::WHITE, prelude::*, sprite::MaterialMesh2dBundle, window::PrimaryWindow,
-};
+use bevy::{color::palettes::css::WHITE, prelude::*, window::PrimaryWindow};
 use bevy_rapier2d::prelude::*;
 
 const BORDER_THICKNESS: f32 = 6.;
@@ -18,7 +16,7 @@ fn setup(
 ) {
     let mesh = meshes.add(Rectangle::default());
     let material = materials.add(Color::from(WHITE));
-    let window = q_window.single();
+    let window = q_window.single().unwrap();
     let window_size = window.resolution.size();
 
     let top_border_transform = Transform {
@@ -54,48 +52,34 @@ fn setup(
     };
 
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: mesh.clone().into(),
-            material: material.clone().into(),
-            transform: top_border_transform,
-            ..default()
-        },
+        Mesh2d(mesh.clone().into()),
+        MeshMaterial2d(material.clone()),
+        top_border_transform,
         RigidBody::Fixed,
         Collider::cuboid(0.5, 0.5),
         Border,
     ));
 
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: mesh.clone().into(),
-            material: material.clone().into(),
-            transform: bottom_border_transform,
-            ..default()
-        },
+        Mesh2d(mesh.clone().into()),
+        MeshMaterial2d(material.clone()),
+        bottom_border_transform,
         RigidBody::Fixed,
         Collider::cuboid(0.5, 0.5),
         Border,
     ));
-
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: mesh.clone().into(),
-            material: material.clone().into(),
-            transform: left_border_transform,
-            ..default()
-        },
+        Mesh2d(mesh.clone().into()),
+        MeshMaterial2d(material.clone()),
+        left_border_transform,
         RigidBody::Fixed,
         Collider::cuboid(0.5, 0.5),
         Border,
     ));
-
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: mesh.clone().into(),
-            material: material.clone().into(),
-            transform: right_border_transform,
-            ..default()
-        },
+        Mesh2d(mesh.clone().into()),
+        MeshMaterial2d(material.clone()),
+        right_border_transform,
         RigidBody::Fixed,
         Collider::cuboid(0.5, 0.5),
         Border,

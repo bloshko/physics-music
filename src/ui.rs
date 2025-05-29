@@ -8,25 +8,20 @@ struct Label;
 
 fn setup_ui(mut commands: Commands) {
     commands.spawn((
-        TextBundle::from_section(
-            "x: 0 y: 0",
-            TextStyle {
-                font_size: 15.0,
-                ..default()
-            },
-        ),
+        Text("x: 0 y: 0".to_string()),
+        TextFont::from_font_size(15.0),
         Label,
     ));
 }
 
 fn update_ui(
-    mut text_query: Query<&mut Text, With<Label>>,
+    text_query: Query<Entity, With<Label>>,
+    mut writer: TextUiWriter,
     cursor_coords: Res<cursor_position::CursorWorldPosition>,
 ) {
-    let mut text_component = text_query.single_mut();
+    let text_component = text_query.single().unwrap();
 
-    text_component.sections[0].value =
-        format!("x: {}, y: {}", cursor_coords.0.x, cursor_coords.0.y);
+    *writer.text(text_component, 0) = format!("x: {}, y: {}", cursor_coords.0.x, cursor_coords.0.y);
 }
 
 impl Plugin for UIPlugin {
