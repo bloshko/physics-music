@@ -6,6 +6,7 @@ const BORDER_THICKNESS: f32 = 6.;
 pub struct BordersPlugin;
 
 #[derive(Component)]
+#[require(RigidBody::Fixed, Collider::cuboid(0.5, 0.5))]
 pub struct Border;
 
 fn setup(
@@ -52,36 +53,28 @@ fn setup(
     };
 
     commands.spawn((
-        Mesh2d(mesh.clone().into()),
+        Mesh2d(mesh.clone()),
         MeshMaterial2d(material.clone()),
         top_border_transform,
-        RigidBody::Fixed,
-        Collider::cuboid(0.5, 0.5),
         Border,
     ));
 
     commands.spawn((
-        Mesh2d(mesh.clone().into()),
+        Mesh2d(mesh.clone()),
         MeshMaterial2d(material.clone()),
         bottom_border_transform,
-        RigidBody::Fixed,
-        Collider::cuboid(0.5, 0.5),
         Border,
     ));
     commands.spawn((
-        Mesh2d(mesh.clone().into()),
+        Mesh2d(mesh.clone()),
         MeshMaterial2d(material.clone()),
         left_border_transform,
-        RigidBody::Fixed,
-        Collider::cuboid(0.5, 0.5),
         Border,
     ));
     commands.spawn((
-        Mesh2d(mesh.clone().into()),
+        Mesh2d(mesh.clone()),
         MeshMaterial2d(material.clone()),
         right_border_transform,
-        RigidBody::Fixed,
-        Collider::cuboid(0.5, 0.5),
         Border,
     ));
 }

@@ -9,6 +9,15 @@ const RADIUS: f32 = 10.;
 pub struct SoundObjectPlugin;
 
 #[derive(Component)]
+#[require(
+    GravityScale(0.0),
+    Collider::ball(RADIUS),
+    RigidBody::Dynamic,
+    Restitution::coefficient(0.7),
+    ActiveEvents::COLLISION_EVENTS,
+    PulsateTimer::default(),
+    SoundObjectUIState::default()
+)]
 pub struct SoundObject;
 
 #[derive(Resource)]
@@ -20,22 +29,17 @@ struct SoundObjectHandles {
 #[derive(Component)]
 struct PulsateTimer(Timer);
 
-#[derive(Component, PartialEq)]
+#[derive(Component, PartialEq, Default)]
 enum SoundObjectUIState {
+    #[default]
+    Idle,
     PulsatingUp,
     PulsatingDown,
-    Idle,
 }
 
 impl SoundObjectUIState {
     fn is_active(&self) -> bool {
         self == &SoundObjectUIState::PulsatingUp || self == &SoundObjectUIState::PulsatingDown
-    }
-}
-
-impl Default for SoundObjectUIState {
-    fn default() -> Self {
-        SoundObjectUIState::Idle
     }
 }
 
@@ -55,17 +59,10 @@ fn spawn_on_click(
 
     if keyboard.just_pressed(KeyCode::KeyZ) || keyboard.just_pressed(KeyCode::KeyC) {
         commands.spawn((
-            Mesh2d(sound_object_handles.mesh_handle.clone().into()),
+            Mesh2d(sound_object_handles.mesh_handle.clone()),
             MeshMaterial2d(sound_object_handles.material_handle.clone()),
             Transform::from_xyz(position.x, position.y, 0.),
-            RigidBody::Dynamic,
-            GravityScale(0.0),
-            Restitution::coefficient(0.7),
-            Collider::ball(RADIUS),
             SoundObject,
-            ActiveEvents::COLLISION_EVENTS,
-            PulsateTimer::default(),
-            SoundObjectUIState::default(),
         ));
     };
 }

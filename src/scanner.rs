@@ -25,7 +25,7 @@ fn move_scanner_with_cursor(
 ) {
     let mut scanner_transform = q_scanner_transform.single_mut().unwrap();
 
-    scanner_transform.translation = cursor_world_position.0.clone().extend(0.);
+    scanner_transform.translation = cursor_world_position.0.extend(0.);
 }
 
 fn scan_from_left_to_right(mut q_scanner: Query<(&mut Transform, &Scanner)>, time: Res<Time>) {
@@ -36,7 +36,7 @@ fn scan_from_left_to_right(mut q_scanner: Query<(&mut Transform, &Scanner)>, tim
     if transform.translation.x > scanner.scanning_boundaries.right {
         transform.translation.x = 0.;
     } else {
-        transform.translation.x = transform.translation.x + scanner_speed * time.delta_secs()
+        transform.translation.x += scanner_speed * time.delta_secs()
     }
 }
 
@@ -61,7 +61,7 @@ fn setup(
     };
 
     commands.spawn((
-        Mesh2d(mesh.into()),
+        Mesh2d(mesh),
         MeshMaterial2d(material),
         Transform {
             translation: Vec3::new(0., scanner_height / 2., 0.),
