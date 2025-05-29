@@ -1,5 +1,5 @@
 use bevy::audio::Source;
-use bevy::utils::Duration;
+use core::time::Duration;
 use fundsp::prelude::*;
 
 fn get_audio_unit() -> Box<dyn AudioUnit> {

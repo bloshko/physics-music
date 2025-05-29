@@ -1,9 +1,7 @@
 use crate::cursor_position;
 use crate::dsp::dsp_audio::DspAudio;
 use crate::scanner::Scanner;
-use bevy::{
-    audio::AddAudioSource, color::palettes::css::GREEN, prelude::*, sprite::MaterialMesh2dBundle,
-};
+use bevy::{audio::AddAudioSource, color::palettes::css::GREEN, prelude::*};
 use bevy_rapier2d::prelude::*;
 
 const RADIUS: f32 = 10.;
@@ -57,12 +55,9 @@ fn spawn_on_click(
 
     if keyboard.just_pressed(KeyCode::KeyZ) || keyboard.just_pressed(KeyCode::KeyC) {
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: sound_object_handles.mesh_handle.clone().into(),
-                material: sound_object_handles.material_handle.clone(),
-                transform: Transform::from_xyz(position.x, position.y, 0.),
-                ..default()
-            },
+            Mesh2d(sound_object_handles.mesh_handle.clone().into()),
+            MeshMaterial2d(sound_object_handles.material_handle.clone()),
+            Transform::from_xyz(position.x, position.y, 0.),
             RigidBody::Dynamic,
             GravityScale(0.0),
             Restitution::coefficient(0.7),
@@ -86,7 +81,7 @@ fn setup(
 
     commands.insert_resource(SoundObjectHandles {
         mesh_handle: mesh.clone(),
-        material_handle: material.clone().into(),
+        material_handle: material.clone(),
     });
 
     // let audio_handle = assets.add(DspAudio { frequency: 440. });
@@ -135,8 +130,7 @@ fn handle_pulse(
                         .insert(SoundObjectUIState::PulsatingDown)
                         .insert(PulsateTimer::default());
                 } else {
-                    transform.scale =
-                        transform.scale + Vec3::new(2.0, 2.0, 0.) * time.delta_seconds();
+                    transform.scale += Vec3::new(2.0, 2.0, 0.) * time.delta_secs();
                 }
             }
             SoundObjectUIState::PulsatingDown => {
@@ -147,8 +141,7 @@ fn handle_pulse(
                         .insert(SoundObjectUIState::default())
                         .insert(PulsateTimer::default());
                 } else {
-                    transform.scale =
-                        transform.scale - Vec3::new(2.0, 2.0, 0.) * time.delta_seconds();
+                    transform.scale -= Vec3::new(2.0, 2.0, 0.) * time.delta_secs();
                 }
             }
             _ => (),
@@ -169,7 +162,7 @@ fn handle_scanner_collision(
                     q_scanner.get(*ent1).is_ok() || q_scanner.get(*ent1).is_ok();
 
                 if !is_collision_with_scanner {
-                    ()
+                    return;
                 }
 
                 let sound_object = if q_sound_object.get(*ent1).is_ok() {
