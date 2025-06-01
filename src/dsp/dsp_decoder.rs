@@ -2,13 +2,13 @@ use bevy::audio::Source;
 use core::time::Duration;
 use fundsp::prelude::*;
 
-fn get_audio_unit() -> Box<dyn AudioUnit> {
+fn get_audio_unit(control: Shared) -> Box<dyn AudioUnit> {
     let c = 0.2 * (organ_hz(midi_hz(57.0)) + organ_hz(midi_hz(61.0)) + organ_hz(midi_hz(64.0)));
-    let mut c = c >> pan(0.0);
+    let mut c = (c * (var(&control) >> adsr_live(0.1, 0.2, 0.4, 0.2))) >> pan(0.0);
 
     c.set_sample_rate(44_100.);
 
-    return Box::new(c);
+    Box::new(c)
 }
 
 pub struct DspDecoder {
@@ -20,9 +20,9 @@ pub struct DspDecoder {
 }
 
 impl DspDecoder {
-    pub fn new(frequency: f32) -> Self {
+    pub fn new(frequency: f32, control: Shared) -> Self {
         let sample_rate = 44_100;
-        let audio_unit = get_audio_unit();
+        let audio_unit = get_audio_unit(control.clone());
 
         DspDecoder {
             audio_unit,

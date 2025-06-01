@@ -3,6 +3,7 @@ use crate::dsp::dsp_audio::DspAudio;
 use crate::scanner::Scanner;
 use bevy::{audio::AddAudioSource, color::palettes::css::GREEN, prelude::*};
 use bevy_rapier2d::prelude::*;
+use fundsp::hacker::shared;
 
 const RADIUS: f32 = 10.;
 
@@ -67,6 +68,11 @@ fn spawn_on_click(
     };
 }
 
+#[derive(Resource)]
+struct MyDsp {
+    dsp_handle: Handle<DspAudio>,
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -81,12 +87,33 @@ fn setup(
         material_handle: material.clone(),
     });
 
-    // let audio_handle = assets.add(DspAudio { frequency: 440. });
-    //
-    // commands.spawn(AudioSourceBundle {
-    //     source: audio_handle,
-    //     ..default()
-    // });
+    let audio_handle = assets.add(DspAudio {
+        frequency: 440.,
+        control: shared(0.0),
+    });
+
+    commands.insert_resource(MyDsp {
+        dsp_handle: audio_handle.clone(),
+    });
+
+    commands.spawn(AudioPlayer(audio_handle));
+}
+
+fn handle_trigger_sound(
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    dsp_res: Res<Assets<DspAudio>>,
+    my_dsp: Res<MyDsp>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        if let Some(dsp) = dsp_res.get(&my_dsp.dsp_handle) {
+            dsp.control.set_value(1.0);
+        }
+    }
+    if keyboard_input.just_released(KeyCode::Space) {
+        if let Some(dsp) = dsp_res.get(&my_dsp.dsp_handle) {
+            dsp.control.set_value(-1.0);
+        }
+    }
 }
 
 fn handle_clean_all_sound_objects(
@@ -196,6 +223,7 @@ impl Plugin for SoundObjectPlugin {
                     handle_scanner_collision,
                     handle_pulse,
                     handle_clean_all_sound_objects,
+                    handle_trigger_sound,
                 ),
             );
     }
