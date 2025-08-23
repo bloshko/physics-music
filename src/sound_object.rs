@@ -4,8 +4,11 @@ use crate::scanner::Scanner;
 use bevy::{audio::AddAudioSource, color::palettes::css::GREEN, prelude::*};
 use bevy_rapier2d::prelude::*;
 use fundsp::hacker::shared;
+use rand::Rng;
 
 const RADIUS: f32 = 10.;
+const RAND_FREQ_MIN: f32 = 60.0;
+const RAND_FREQ_MAX: f32 = 400.0;
 
 pub struct SoundObjectPlugin;
 
@@ -19,7 +22,9 @@ pub struct SoundObjectPlugin;
     PulsateTimer::default(),
     SoundObjectUIState::default()
 )]
-pub struct SoundObject;
+pub struct SoundObject {
+    dsp_handle: Handle<DspAudio>,
+}
 
 #[derive(Resource)]
 struct SoundObjectHandles {
@@ -55,15 +60,31 @@ fn spawn_on_click(
     sound_object_handles: Res<SoundObjectHandles>,
     cursor_position: Res<cursor_position::CursorWorldPosition>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    mut dsp_assets: ResMut<Assets<DspAudio>>,
 ) {
     let position = cursor_position.0;
 
     if keyboard.just_pressed(KeyCode::KeyZ) || keyboard.just_pressed(KeyCode::KeyC) {
+        let mut rng = rand::rng();
+        let rand_freq: f32 = rng.random_range(RAND_FREQ_MIN..=RAND_FREQ_MAX);
+
+        let audio_handle = dsp_assets.add(DspAudio {
+            frequency: rand_freq,
+            control: shared(-1.0),
+        });
+
+        commands.insert_resource(MyDsp {
+            dsp_handle: audio_handle.clone(),
+        });
+
         commands.spawn((
             Mesh2d(sound_object_handles.mesh_handle.clone()),
             MeshMaterial2d(sound_object_handles.material_handle.clone()),
             Transform::from_xyz(position.x, position.y, 0.),
-            SoundObject,
+            AudioPlayer(audio_handle.clone()),
+            SoundObject {
+                dsp_handle: audio_handle,
+            },
         ));
     };
 }
@@ -77,7 +98,6 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut assets: ResMut<Assets<DspAudio>>,
 ) {
     let mesh = meshes.add(Circle::new(RADIUS));
     let material = materials.add(Color::from(GREEN));
@@ -86,19 +106,9 @@ fn setup(
         mesh_handle: mesh.clone(),
         material_handle: material.clone(),
     });
-
-    let audio_handle = assets.add(DspAudio {
-        frequency: 440.,
-        control: shared(0.0),
-    });
-
-    commands.insert_resource(MyDsp {
-        dsp_handle: audio_handle.clone(),
-    });
-
-    commands.spawn(AudioPlayer(audio_handle));
 }
 
+#[allow(dead_code)]
 fn handle_trigger_sound(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     dsp_res: Res<Assets<DspAudio>>,
@@ -106,12 +116,12 @@ fn handle_trigger_sound(
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         if let Some(dsp) = dsp_res.get(&my_dsp.dsp_handle) {
-            dsp.control.set_value(1.0);
+            dsp.note_on();
         }
     }
     if keyboard_input.just_released(KeyCode::Space) {
         if let Some(dsp) = dsp_res.get(&my_dsp.dsp_handle) {
-            dsp.control.set_value(-1.0);
+            dsp.note_off();
         }
     }
 }
@@ -176,8 +186,9 @@ fn handle_pulse(
 fn handle_scanner_collision(
     mut commands: Commands,
     mut collision_events: EventReader<CollisionEvent>,
-    q_sound_object: Query<&SoundObjectUIState, With<SoundObject>>,
+    q_sound_object: Query<(&SoundObjectUIState, &SoundObject)>,
     q_scanner: Query<Entity, With<Scanner>>,
+    dsp_res: Res<Assets<DspAudio>>,
 ) {
     for collision_event in collision_events.read() {
         match collision_event {
@@ -198,16 +209,41 @@ fn handle_scanner_collision(
                 };
 
                 if let Some(&sound_object_entity) = sound_object {
-                    let state = q_sound_object.get(sound_object_entity).unwrap();
+                    let (state, sound_object) = q_sound_object.get(sound_object_entity).unwrap();
 
                     if *state == SoundObjectUIState::default() {
                         commands
                             .entity(sound_object_entity)
                             .insert(SoundObjectUIState::PulsatingUp);
+
+                        if let Some(dsp) = dsp_res.get(sound_object.dsp_handle.id()) {
+                            dsp.note_on();
+                        }
                     }
                 }
             }
-            CollisionEvent::Stopped(_, _, _) => (),
+            CollisionEvent::Stopped(ent1, ent2, _) => {
+                let scanner_collision = q_scanner.get(*ent1).ok().or(q_scanner.get(*ent2).ok());
+
+                if scanner_collision.is_none() {
+                    return;
+                }
+
+                let sound_object_collision = q_sound_object
+                    .get(*ent1)
+                    .ok()
+                    .or(q_sound_object.get(*ent2).ok());
+
+                let (_, sound_object) = if let Some(v) = sound_object_collision {
+                    v
+                } else {
+                    return;
+                };
+
+                if let Some(dsp) = dsp_res.get(sound_object.dsp_handle.id()) {
+                    dsp.note_off();
+                }
+            }
         }
     }
 }
@@ -223,7 +259,7 @@ impl Plugin for SoundObjectPlugin {
                     handle_scanner_collision,
                     handle_pulse,
                     handle_clean_all_sound_objects,
-                    handle_trigger_sound,
+                    // handle_trigger_sound,
                 ),
             );
     }

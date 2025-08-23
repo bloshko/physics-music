@@ -17,3 +17,13 @@ impl Decodable for DspAudio {
         DspDecoder::new(self.frequency, self.control.clone())
     }
 }
+
+impl DspAudio {
+    pub fn note_on(&self) {
+        self.control.set_value(1.0);
+    }
+
+    pub fn note_off(&self) {
+        self.control.set_value(-1.0);
+    }
+}

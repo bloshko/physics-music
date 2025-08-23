@@ -2,9 +2,11 @@ use bevy::audio::Source;
 use core::time::Duration;
 use fundsp::prelude::*;
 
-fn get_audio_unit(control: Shared) -> Box<dyn AudioUnit> {
-    let c = 0.2 * (organ_hz(midi_hz(57.0)) + organ_hz(midi_hz(61.0)) + organ_hz(midi_hz(64.0)));
-    let mut c = (c * (var(&control) >> adsr_live(0.1, 0.2, 0.4, 0.2))) >> pan(0.0);
+fn get_audio_unit(base_freq: f32, control: Shared) -> Box<dyn AudioUnit> {
+    let c = 0.2 * (organ_hz(base_freq) + organ_hz(base_freq + 30.0) + organ_hz(base_freq + 54.0));
+    let mut c = (c * (var(&control) >> adsr_live(0.1, 0.2, 0.4, 0.2)))
+        >> (pass() ^ pass())
+        >> reverb_stereo(1.0, 0.5, 1.0);
 
     c.set_sample_rate(44_100.);
 
@@ -17,12 +19,13 @@ pub struct DspDecoder {
     progress_per_frame: f32,
     period: f32,
     sample_rate: u32,
+    pending_r_sample: Option<f32>,
 }
 
 impl DspDecoder {
     pub fn new(frequency: f32, control: Shared) -> Self {
         let sample_rate = 44_100;
-        let audio_unit = get_audio_unit(control.clone());
+        let audio_unit = get_audio_unit(frequency, control.clone());
 
         DspDecoder {
             audio_unit,
@@ -30,6 +33,7 @@ impl DspDecoder {
             progress_per_frame: frequency / sample_rate as f32,
             period: std::f32::consts::PI * 2.,
             sample_rate,
+            pending_r_sample: None,
         }
     }
 }
@@ -38,9 +42,16 @@ impl Iterator for DspDecoder {
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next_sample = self.audio_unit.get_mono();
+        if let Some(pending_r_sample) = self.pending_r_sample {
+            self.pending_r_sample = None;
 
-        Some(next_sample)
+            return Some(pending_r_sample);
+        }
+
+        let (left, right) = self.audio_unit.get_stereo();
+        self.pending_r_sample = Some(right);
+
+        Some(left)
     }
 }
 
