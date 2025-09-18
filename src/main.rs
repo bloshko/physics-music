@@ -1,11 +1,12 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
-use borders::BordersPlugin;
 
 mod borders;
 mod camera;
 mod cursor_position;
 mod dsp;
+mod instrument_plugin;
+mod instruments;
 mod scanner;
 mod sound_object;
 mod ui;
@@ -28,8 +29,9 @@ fn main() {
         .add_plugins(camera::MainCameraPlugin)
         .add_plugins(cursor_position::CursorPositionPlugin)
         .add_plugins(ui::UIPlugin)
-        .add_plugins(BordersPlugin)
+        .add_plugins(borders::BordersPlugin)
         .add_plugins(scanner::ScannerPlugin)
         .add_plugins(sound_object::SoundObjectPlugin)
+        .add_plugins(instrument_plugin::InstrumentPlugin)
         .run();
 }

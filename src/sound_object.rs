@@ -1,14 +1,11 @@
-use crate::cursor_position;
 use crate::dsp::dsp_audio::DspAudio;
+use crate::instrument_plugin::InstrumentHandles;
 use crate::scanner::Scanner;
+use crate::{cursor_position, instrument_plugin::InstrumentType};
 use bevy::{audio::AddAudioSource, color::palettes::css::GREEN, prelude::*};
 use bevy_rapier2d::prelude::*;
-use fundsp::hacker::shared;
-use rand::Rng;
 
 const RADIUS: f32 = 10.;
-const RAND_FREQ_MIN: f32 = 60.0;
-const RAND_FREQ_MAX: f32 = 400.0;
 
 pub struct SoundObjectPlugin;
 
@@ -60,38 +57,35 @@ fn spawn_on_click(
     sound_object_handles: Res<SoundObjectHandles>,
     cursor_position: Res<cursor_position::CursorWorldPosition>,
     keyboard: Res<ButtonInput<KeyCode>>,
-    mut dsp_assets: ResMut<Assets<DspAudio>>,
+    instrument_handles: Res<InstrumentHandles>,
 ) {
     let position = cursor_position.0;
 
     if keyboard.just_pressed(KeyCode::KeyZ) || keyboard.just_pressed(KeyCode::KeyC) {
-        let mut rng = rand::rng();
-        let rand_freq: f32 = rng.random_range(RAND_FREQ_MIN..=RAND_FREQ_MAX);
+        let mut new_entity = commands.spawn_empty();
 
-        let audio_handle = dsp_assets.add(DspAudio {
-            frequency: rand_freq,
-            control: shared(-1.0),
-        });
+        let handle = if keyboard.just_pressed(KeyCode::KeyZ) {
+            new_entity.insert(InstrumentType::Snare);
+            instrument_handles.snare.clone()
+        } else {
+            new_entity.insert(InstrumentType::Organ);
+            instrument_handles.organ.clone()
+        };
 
-        commands.insert_resource(MyDsp {
-            dsp_handle: audio_handle.clone(),
-        });
-
-        commands.spawn((
+        new_entity.insert((
+            AudioPlayer(handle.clone()),
+            SoundObject {
+                dsp_handle: handle.clone(),
+            },
             Mesh2d(sound_object_handles.mesh_handle.clone()),
             MeshMaterial2d(sound_object_handles.material_handle.clone()),
             Transform::from_xyz(position.x, position.y, 0.),
-            AudioPlayer(audio_handle.clone()),
-            SoundObject {
-                dsp_handle: audio_handle,
+            ExternalImpulse {
+                torque_impulse: 0.0,
+                impulse: Vec2::new(1.0, 0.0) * 3000.0,
             },
         ));
     };
-}
-
-#[derive(Resource)]
-struct MyDsp {
-    dsp_handle: Handle<DspAudio>,
 }
 
 fn setup(
@@ -106,24 +100,6 @@ fn setup(
         mesh_handle: mesh.clone(),
         material_handle: material.clone(),
     });
-}
-
-#[allow(dead_code)]
-fn handle_trigger_sound(
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    dsp_res: Res<Assets<DspAudio>>,
-    my_dsp: Res<MyDsp>,
-) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
-        if let Some(dsp) = dsp_res.get(&my_dsp.dsp_handle) {
-            dsp.note_on();
-        }
-    }
-    if keyboard_input.just_released(KeyCode::Space) {
-        if let Some(dsp) = dsp_res.get(&my_dsp.dsp_handle) {
-            dsp.note_off();
-        }
-    }
 }
 
 fn handle_clean_all_sound_objects(
@@ -259,7 +235,6 @@ impl Plugin for SoundObjectPlugin {
                     handle_scanner_collision,
                     handle_pulse,
                     handle_clean_all_sound_objects,
-                    // handle_trigger_sound,
                 ),
             );
     }

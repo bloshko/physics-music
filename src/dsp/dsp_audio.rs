@@ -1,11 +1,13 @@
 use super::dsp_decoder::DspDecoder;
 use bevy::prelude::*;
-use fundsp::shared::Shared;
+use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc};
+
+use crate::instruments::Instrument;
 
 #[derive(Asset, TypePath)]
 pub struct DspAudio {
-    pub frequency: f32,
-    pub control: Shared,
+    trigger: Arc<AtomicBool>,
+    pub instrument: Box<dyn Instrument + Send + Sync + 'static>,
 }
 
 impl Decodable for DspAudio {
@@ -14,16 +16,25 @@ impl Decodable for DspAudio {
     type Decoder = DspDecoder;
 
     fn decoder(&self) -> Self::Decoder {
-        DspDecoder::new(self.frequency, self.control.clone())
+        DspDecoder::new(self.instrument.audio_unit(), self.trigger.clone())
     }
 }
 
 impl DspAudio {
+    pub fn new<I>(instrument: I) -> Self
+    where
+        I: Instrument + Send + Sync + 'static,
+    {
+        Self {
+            trigger: Arc::new(AtomicBool::new(false)),
+            instrument: Box::new(instrument),
+        }
+    }
     pub fn note_on(&self) {
-        self.control.set_value(1.0);
+        self.trigger.store(true, Ordering::Release);
     }
 
     pub fn note_off(&self) {
-        self.control.set_value(-1.0);
+        self.trigger.store(false, Ordering::Release);
     }
 }
