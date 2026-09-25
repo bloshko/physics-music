@@ -1,10 +1,13 @@
 use bevy::prelude::*;
 use bevy_rapier2d::prelude::*;
 
+mod bomb;
 mod borders;
 mod camera;
 mod cursor_position;
 mod dsp;
+mod grid;
+mod grid_pull;
 mod instruments;
 mod scanner;
 mod sound_object;
@@ -28,8 +31,11 @@ fn main() {
         .add_plugins(camera::MainCameraPlugin)
         .add_plugins(cursor_position::CursorPositionPlugin)
         .add_plugins(ui::UIPlugin)
+        .add_plugins(grid::GridPlugin)
         .add_plugins(borders::BordersPlugin)
         .add_plugins(scanner::ScannerPlugin)
         .add_plugins(sound_object::SoundObjectPlugin)
+        .add_plugins(grid_pull::GridPullPlugin)
+        .add_plugins(bomb::BombPlugin)
         .run();
 }

@@ -5,8 +5,21 @@ const BORDER_THICKNESS: f32 = 6.;
 
 pub struct BordersPlugin;
 
+/// A wall just outside the window. Balls bounce off it without losing speed:
+/// the `Max`/`Min` rules make the wall's values win over the ball's own.
 #[derive(Component)]
-#[require(RigidBody::Fixed, Collider::cuboid(0.5, 0.5))]
+#[require(
+    RigidBody::Fixed,
+    Collider::cuboid(0.5, 0.5),
+    Restitution {
+        coefficient: 1.,
+        combine_rule: CoefficientCombineRule::Max,
+    },
+    Friction {
+        coefficient: 0.,
+        combine_rule: CoefficientCombineRule::Min,
+    }
+)]
 pub struct Border;
 
 fn setup(

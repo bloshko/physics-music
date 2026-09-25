@@ -53,7 +53,15 @@ pub struct SoundObjectPlugin;
     Collider::ball(RADIUS),
     RigidBody::Dynamic,
     Restitution::coefficient(0.7),
-    ActiveEvents::COLLISION_EVENTS
+    ActiveEvents::COLLISION_EVENTS,
+    Velocity,
+    ExternalForce,
+    Damping,
+    ReadMassProperties,
+    ExternalImpulse,
+    // Continuous collision detection: stops fast balls (e.g. after a bomb)
+    // from passing through the thin walls between two physics steps.
+    Ccd::enabled()
 )]
 pub struct SoundObject {
     /// How long the note is held before the envelope releases, in seconds.
@@ -142,7 +150,7 @@ fn spawn_on_key_press(
 }
 
 /// Picks a random direction and a random strength from `LAUNCH_IMPULSE`.
-fn random_launch_impulse() -> Vec2 {
+pub fn random_launch_impulse() -> Vec2 {
     let direction = Vec2::from_angle(rand::random_range(0.0..TAU));
     direction * rand::random_range(LAUNCH_IMPULSE)
 }
