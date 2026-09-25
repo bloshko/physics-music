@@ -1,11 +1,49 @@
-use crate::dsp::dsp_audio::DspAudio;
-use crate::instrument_plugin::InstrumentHandles;
-use crate::scanner::Scanner;
-use crate::{cursor_position, instrument_plugin::InstrumentType};
-use bevy::{audio::AddAudioSource, color::palettes::css::GREEN, prelude::*};
+use crate::{
+    cursor_position::CursorWorldPosition,
+    dsp::dsp_audio::DspAudio,
+    instruments::{Envelope, Kick, Organ, Snare},
+    scanner::Scanner,
+};
+use bevy::{
+    audio::AddAudioSource,
+    color::palettes::css::{CRIMSON, GOLD, GREEN},
+    input::common_conditions::input_just_pressed,
+    prelude::*,
+};
 use bevy_rapier2d::prelude::*;
+use std::{f32::consts::TAU, ops::Range};
 
 const RADIUS: f32 = 10.;
+/// Range of launch impulse strengths; each sound object gets a random one.
+const LAUNCH_IMPULSE: Range<f32> = 1500.0..4500.0;
+const PULSE_DURATION: f32 = 0.2;
+const PULSE_GROWTH: f32 = 0.2;
+
+const SNARE_ENVELOPE: Envelope = Envelope {
+    attack: 0.,
+    decay: 0.2,
+    sustain: 0.,
+    release: 0.05,
+};
+const SNARE_NOTE_LENGTH: f32 = 0.2;
+
+const KICK_FREQUENCY: f32 = 50.;
+const KICK_ENVELOPE: Envelope = Envelope {
+    attack: 0.,
+    decay: 0.3,
+    sustain: 0.,
+    release: 0.05,
+};
+const KICK_NOTE_LENGTH: f32 = 0.3;
+
+const ORGAN_FREQUENCY: f32 = 440.;
+const ORGAN_ENVELOPE: Envelope = Envelope {
+    attack: 0.1,
+    decay: 0.2,
+    sustain: 0.4,
+    release: 0.2,
+};
+const ORGAN_NOTE_LENGTH: f32 = 0.3;
 
 pub struct SoundObjectPlugin;
 
@@ -15,212 +53,196 @@ pub struct SoundObjectPlugin;
     Collider::ball(RADIUS),
     RigidBody::Dynamic,
     Restitution::coefficient(0.7),
-    ActiveEvents::COLLISION_EVENTS,
-    PulsateTimer::default(),
-    SoundObjectUIState::default()
+    ActiveEvents::COLLISION_EVENTS
 )]
 pub struct SoundObject {
-    dsp_handle: Handle<DspAudio>,
+    /// How long the note is held before the envelope releases, in seconds.
+    note_length: f32,
 }
 
 #[derive(Resource)]
 struct SoundObjectHandles {
-    mesh_handle: Handle<Mesh>,
-    material_handle: Handle<ColorMaterial>,
+    mesh: Handle<Mesh>,
+    snare_material: Handle<ColorMaterial>,
+    kick_material: Handle<ColorMaterial>,
+    organ_material: Handle<ColorMaterial>,
 }
 
+/// Present while a sound object's note is held. Releases the note when it finishes.
 #[derive(Component)]
-struct PulsateTimer(Timer);
+struct HeldNote(Timer);
 
-#[derive(Component, PartialEq, Default)]
-enum SoundObjectUIState {
-    #[default]
-    Idle,
-    PulsatingUp,
-    PulsatingDown,
-}
+/// Present while a sound object is playing its hit animation.
+#[derive(Component)]
+struct Pulse(Timer);
 
-impl SoundObjectUIState {
-    fn is_active(&self) -> bool {
-        self == &SoundObjectUIState::PulsatingUp || self == &SoundObjectUIState::PulsatingDown
-    }
-}
-
-impl Default for PulsateTimer {
+impl Default for Pulse {
     fn default() -> Self {
-        PulsateTimer(Timer::from_seconds(0.1, TimerMode::Once))
+        Self(Timer::from_seconds(PULSE_DURATION, TimerMode::Once))
     }
 }
 
-fn spawn_on_click(
-    mut commands: Commands,
-    sound_object_handles: Res<SoundObjectHandles>,
-    cursor_position: Res<cursor_position::CursorWorldPosition>,
-    keyboard: Res<ButtonInput<KeyCode>>,
-    instrument_handles: Res<InstrumentHandles>,
-) {
-    let position = cursor_position.0;
-
-    if keyboard.just_pressed(KeyCode::KeyZ) || keyboard.just_pressed(KeyCode::KeyC) {
-        let mut new_entity = commands.spawn_empty();
-
-        let handle = if keyboard.just_pressed(KeyCode::KeyZ) {
-            new_entity.insert(InstrumentType::Snare);
-            instrument_handles.snare.clone()
-        } else {
-            new_entity.insert(InstrumentType::Organ);
-            instrument_handles.organ.clone()
-        };
-
-        new_entity.insert((
-            AudioPlayer(handle.clone()),
-            SoundObject {
-                dsp_handle: handle.clone(),
-            },
-            Mesh2d(sound_object_handles.mesh_handle.clone()),
-            MeshMaterial2d(sound_object_handles.material_handle.clone()),
-            Transform::from_xyz(position.x, position.y, 0.),
-            ExternalImpulse {
-                torque_impulse: 0.0,
-                impulse: Vec2::new(1.0, 0.0) * 3000.0,
-            },
-        ));
-    };
-}
-
+/// Creates the mesh shared by all sound objects, and one material per instrument.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let mesh = meshes.add(Circle::new(RADIUS));
-    let material = materials.add(Color::from(GREEN));
-
     commands.insert_resource(SoundObjectHandles {
-        mesh_handle: mesh.clone(),
-        material_handle: material.clone(),
+        mesh: meshes.add(Circle::new(RADIUS)),
+        snare_material: materials.add(Color::from(GOLD)),
+        kick_material: materials.add(Color::from(CRIMSON)),
+        organ_material: materials.add(Color::from(GREEN)),
     });
 }
 
-fn handle_clean_all_sound_objects(
+/// Spawns a sound object with its own voice at the cursor when Z (snare),
+/// X (kick) or C (organ) is pressed, and launches it in a random direction
+/// with a random strength.
+fn spawn_on_key_press(
     mut commands: Commands,
-    q_sound_objects: Query<Entity, With<SoundObject>>,
+    sound_object_handles: Res<SoundObjectHandles>,
+    cursor_position: Res<CursorWorldPosition>,
     keyboard: Res<ButtonInput<KeyCode>>,
+    mut dsp_assets: ResMut<Assets<DspAudio>>,
 ) {
-    if keyboard.just_pressed(KeyCode::Backspace) {
-        for entity in q_sound_objects.iter() {
-            commands.entity(entity).despawn();
-        }
+    let (voice, note_length, material) = if keyboard.just_pressed(KeyCode::KeyZ) {
+        (
+            DspAudio::new(Snare::new(SNARE_ENVELOPE)),
+            SNARE_NOTE_LENGTH,
+            &sound_object_handles.snare_material,
+        )
+    } else if keyboard.just_pressed(KeyCode::KeyX) {
+        (
+            DspAudio::new(Kick::new(KICK_FREQUENCY, KICK_ENVELOPE)),
+            KICK_NOTE_LENGTH,
+            &sound_object_handles.kick_material,
+        )
+    } else if keyboard.just_pressed(KeyCode::KeyC) {
+        (
+            DspAudio::new(Organ::new(ORGAN_FREQUENCY, ORGAN_ENVELOPE)),
+            ORGAN_NOTE_LENGTH,
+            &sound_object_handles.organ_material,
+        )
+    } else {
+        return;
     };
+
+    commands.spawn((
+        SoundObject { note_length },
+        AudioPlayer(dsp_assets.add(voice)),
+        Mesh2d(sound_object_handles.mesh.clone()),
+        MeshMaterial2d(material.clone()),
+        Transform::from_translation(cursor_position.0.extend(0.)),
+        ExternalImpulse {
+            impulse: random_launch_impulse(),
+            ..default()
+        },
+    ));
 }
 
-fn handle_pulse(
+/// Picks a random direction and a random strength from `LAUNCH_IMPULSE`.
+fn random_launch_impulse() -> Vec2 {
+    let direction = Vec2::from_angle(rand::random_range(0.0..TAU));
+    direction * rand::random_range(LAUNCH_IMPULSE)
+}
+
+/// Despawns every sound object. Runs when Backspace is pressed.
+fn clean_all_sound_objects(
+    mut commands: Commands,
+    sound_objects: Query<Entity, With<SoundObject>>,
+) {
+    for entity in &sound_objects {
+        commands.entity(entity).despawn();
+    }
+}
+
+/// Scales pulsing sound objects up and back down, and removes `Pulse` once
+/// the animation is done.
+fn animate_pulse(
     time: Res<Time>,
     mut commands: Commands,
-    mut q_sound_object: Query<
-        (
-            &mut PulsateTimer,
-            &mut Transform,
-            &SoundObjectUIState,
-            Entity,
-        ),
-        With<SoundObject>,
-    >,
+    mut pulsing: Query<(Entity, &mut Pulse, &mut Transform)>,
 ) {
-    for (mut pulsate_timer, mut transform, state, entity) in &mut q_sound_object {
-        if state.is_active() {
-            pulsate_timer.0.tick(time.delta());
-        }
+    for (entity, mut pulse, mut transform) in &mut pulsing {
+        pulse.0.tick(time.delta());
 
-        match state {
-            SoundObjectUIState::PulsatingUp => {
-                if pulsate_timer.0.just_finished() {
-                    commands
-                        .entity(entity)
-                        .insert(SoundObjectUIState::PulsatingDown)
-                        .insert(PulsateTimer::default());
-                } else {
-                    transform.scale += Vec3::new(2.0, 2.0, 0.) * time.delta_secs();
-                }
-            }
-            SoundObjectUIState::PulsatingDown => {
-                if pulsate_timer.0.just_finished() {
-                    transform.scale = Vec3::new(1., 1., 0.);
-                    commands
-                        .entity(entity)
-                        .insert(SoundObjectUIState::default())
-                        .insert(PulsateTimer::default());
-                } else {
-                    transform.scale -= Vec3::new(2.0, 2.0, 0.) * time.delta_secs();
-                }
-            }
-            _ => (),
+        // Grows to the peak halfway through, then shrinks back: 0 → 1 → 0.
+        let progress = 1. - (2. * pulse.0.fraction() - 1.).abs();
+        transform.scale = Vec2::splat(1. + PULSE_GROWTH * progress).extend(1.);
+
+        if pulse.0.is_finished() {
+            commands.entity(entity).remove::<Pulse>();
         }
     }
 }
 
+/// Starts a note when the scanner reaches a sound object, unless its previous
+/// note is still held.
 fn handle_scanner_collision(
     mut commands: Commands,
     mut collision_events: MessageReader<CollisionEvent>,
-    q_sound_object: Query<(&SoundObjectUIState, &SoundObject)>,
-    q_scanner: Query<Entity, With<Scanner>>,
-    dsp_res: Res<Assets<DspAudio>>,
+    scanners: Query<(), With<Scanner>>,
+    sound_objects: Query<(&SoundObject, &AudioPlayer<DspAudio>, Has<HeldNote>)>,
+    dsp_assets: Res<Assets<DspAudio>>,
 ) {
-    for collision_event in collision_events.read() {
-        match collision_event {
-            CollisionEvent::Started(ent1, ent2, _) => {
-                let is_collision_with_scanner =
-                    q_scanner.get(*ent1).is_ok() || q_scanner.get(*ent1).is_ok();
+    for event in collision_events.read() {
+        // Notes end after their own length, so only the start of contact matters.
+        let CollisionEvent::Started(a, b, _) = *event else {
+            continue;
+        };
 
-                if !is_collision_with_scanner {
-                    return;
-                }
-
-                let sound_object = if q_sound_object.get(*ent1).is_ok() {
-                    Some(ent1)
-                } else if q_sound_object.get(*ent2).is_ok() {
-                    Some(ent2)
-                } else {
-                    None
-                };
-
-                if let Some(&sound_object_entity) = sound_object {
-                    let (state, sound_object) = q_sound_object.get(sound_object_entity).unwrap();
-
-                    if *state == SoundObjectUIState::default() {
-                        commands
-                            .entity(sound_object_entity)
-                            .insert(SoundObjectUIState::PulsatingUp);
-
-                        if let Some(dsp) = dsp_res.get(sound_object.dsp_handle.id()) {
-                            dsp.note_on();
-                        }
-                    }
-                }
-            }
-            CollisionEvent::Stopped(ent1, ent2, _) => {
-                let scanner_collision = q_scanner.get(*ent1).ok().or(q_scanner.get(*ent2).ok());
-
-                if scanner_collision.is_none() {
-                    return;
-                }
-
-                let sound_object_collision = q_sound_object
-                    .get(*ent1)
-                    .ok()
-                    .or(q_sound_object.get(*ent2).ok());
-
-                let (_, sound_object) = if let Some(v) = sound_object_collision {
-                    v
-                } else {
-                    return;
-                };
-
-                if let Some(dsp) = dsp_res.get(sound_object.dsp_handle.id()) {
-                    dsp.note_off();
-                }
-            }
+        let Some(entity) = other_than_scanner(a, b, &scanners) else {
+            continue;
+        };
+        let Ok((sound_object, voice, is_held)) = sound_objects.get(entity) else {
+            continue;
+        };
+        if is_held {
+            continue;
         }
+        let Some(dsp) = dsp_assets.get(&voice.0) else {
+            continue;
+        };
+
+        dsp.note_on();
+        commands.entity(entity).insert((
+            HeldNote(Timer::from_seconds(
+                sound_object.note_length,
+                TimerMode::Once,
+            )),
+            Pulse::default(),
+        ));
+    }
+}
+
+/// Releases each held note once its note length has passed.
+fn release_notes(
+    time: Res<Time>,
+    mut commands: Commands,
+    mut held_notes: Query<(Entity, &mut HeldNote, &AudioPlayer<DspAudio>)>,
+    dsp_assets: Res<Assets<DspAudio>>,
+) {
+    for (entity, mut held_note, voice) in &mut held_notes {
+        if !held_note.0.tick(time.delta()).is_finished() {
+            continue;
+        }
+
+        if let Some(dsp) = dsp_assets.get(&voice.0) {
+            dsp.note_off();
+        }
+        commands.entity(entity).remove::<HeldNote>();
+    }
+}
+
+/// Returns the entity colliding with the scanner, if either of them is the scanner.
+fn other_than_scanner(a: Entity, b: Entity, scanners: &Query<(), With<Scanner>>) -> Option<Entity> {
+    if scanners.contains(a) {
+        Some(b)
+    } else if scanners.contains(b) {
+        Some(a)
+    } else {
+        None
     }
 }
 
@@ -231,10 +253,11 @@ impl Plugin for SoundObjectPlugin {
             .add_systems(
                 Update,
                 (
-                    spawn_on_click,
+                    spawn_on_key_press,
                     handle_scanner_collision,
-                    handle_pulse,
-                    handle_clean_all_sound_objects,
+                    release_notes,
+                    animate_pulse,
+                    clean_all_sound_objects.run_if(input_just_pressed(KeyCode::Backspace)),
                 ),
             );
     }

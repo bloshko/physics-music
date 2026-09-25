@@ -1,38 +1,39 @@
 use super::dsp_decoder::DspDecoder;
 use bevy::prelude::*;
-use std::sync::{atomic::AtomicBool, atomic::Ordering, Arc};
+use fundsp::prelude::Shared;
 
 use crate::instruments::Instrument;
 
+/// One voice: an instrument plus the gate that starts and releases its notes.
 #[derive(Asset, TypePath)]
 pub struct DspAudio {
-    trigger: Arc<AtomicBool>,
-    pub instrument: Box<dyn Instrument + Send + Sync + 'static>,
+    gate: Shared,
+    instrument: Box<dyn Instrument>,
 }
 
 impl Decodable for DspAudio {
     type Decoder = DspDecoder;
 
     fn decoder(&self) -> Self::Decoder {
-        DspDecoder::new(self.instrument.audio_unit(), self.trigger.clone())
+        DspDecoder::new(self.instrument.audio_unit(&self.gate), self.gate.clone())
     }
 }
 
 impl DspAudio {
-    pub fn new<I>(instrument: I) -> Self
-    where
-        I: Instrument + Send + Sync + 'static,
-    {
+    pub fn new(instrument: impl Instrument) -> Self {
         Self {
-            trigger: Arc::new(AtomicBool::new(false)),
+            gate: Shared::new(0.),
             instrument: Box::new(instrument),
         }
     }
+
+    /// Starts the envelope's attack.
     pub fn note_on(&self) {
-        self.trigger.store(true, Ordering::Release);
+        self.gate.set_value(1.);
     }
 
+    /// Starts the envelope's release.
     pub fn note_off(&self) {
-        self.trigger.store(false, Ordering::Release);
+        self.gate.set_value(0.);
     }
 }

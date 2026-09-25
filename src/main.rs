@@ -5,7 +5,6 @@ mod borders;
 mod camera;
 mod cursor_position;
 mod dsp;
-mod instrument_plugin;
 mod instruments;
 mod scanner;
 mod sound_object;
@@ -32,6 +31,5 @@ fn main() {
         .add_plugins(borders::BordersPlugin)
         .add_plugins(scanner::ScannerPlugin)
         .add_plugins(sound_object::SoundObjectPlugin)
-        .add_plugins(instrument_plugin::InstrumentPlugin)
         .run();
 }

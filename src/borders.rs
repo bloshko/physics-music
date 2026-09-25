@@ -1,4 +1,4 @@
-use bevy::{color::palettes::css::WHITE, prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_rapier2d::prelude::*;
 
 const BORDER_THICKNESS: f32 = 6.;
@@ -11,72 +11,36 @@ pub struct Border;
 
 fn setup(
     mut commands: Commands,
-    q_window: Query<&Window, With<PrimaryWindow>>,
+    window: Single<&Window, With<PrimaryWindow>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let mesh = meshes.add(Rectangle::default());
-    let material = materials.add(Color::from(WHITE));
-    let window = q_window.single().unwrap();
+    let material = materials.add(Color::WHITE);
+
     let window_size = window.resolution.size();
+    let center = window_size / 2.;
 
-    let top_border_transform = Transform {
-        translation: Vec3::new(
-            window_size.x / 2.,
-            window_size.y + BORDER_THICKNESS * 1.5,
-            0.,
-        ),
-        scale: Vec3::new(window_size.x, BORDER_THICKNESS, 0.),
-        ..default()
-    };
+    let offset = BORDER_THICKNESS * 1.5;
 
-    let bottom_border_transform = Transform {
-        translation: Vec3::new(window_size.x / 2., BORDER_THICKNESS * -1.5, 0.),
-        scale: Vec3::new(window_size.x, BORDER_THICKNESS, 0.),
-        ..default()
-    };
+    let horizontal = Vec2::new(window_size.x, BORDER_THICKNESS);
+    let vertical = Vec2::new(BORDER_THICKNESS, window_size.y);
 
-    let left_border_transform = Transform {
-        translation: Vec3::new(BORDER_THICKNESS * -1.5, window_size.y / 2., 0.),
-        scale: Vec3::new(BORDER_THICKNESS, window_size.y, 0.),
-        ..default()
-    };
+    let borders = [
+        (Vec2::new(center.x, window_size.y + offset), horizontal), // top
+        (Vec2::new(center.x, -offset), horizontal),                // bottom
+        (Vec2::new(-offset, center.y), vertical),                  // left
+        (Vec2::new(window_size.x + offset, center.y), vertical),   // right
+    ];
 
-    let right_border_transform = Transform {
-        translation: Vec3::new(
-            window_size.x + BORDER_THICKNESS * 1.5,
-            window_size.y / 2.,
-            0.,
-        ),
-        scale: Vec3::new(BORDER_THICKNESS, window_size.y, 0.),
-        ..default()
-    };
-
-    commands.spawn((
-        Mesh2d(mesh.clone()),
-        MeshMaterial2d(material.clone()),
-        top_border_transform,
-        Border,
-    ));
-
-    commands.spawn((
-        Mesh2d(mesh.clone()),
-        MeshMaterial2d(material.clone()),
-        bottom_border_transform,
-        Border,
-    ));
-    commands.spawn((
-        Mesh2d(mesh.clone()),
-        MeshMaterial2d(material.clone()),
-        left_border_transform,
-        Border,
-    ));
-    commands.spawn((
-        Mesh2d(mesh.clone()),
-        MeshMaterial2d(material.clone()),
-        right_border_transform,
-        Border,
-    ));
+    for (position, size) in borders {
+        commands.spawn((
+            Border,
+            Mesh2d(mesh.clone()),
+            MeshMaterial2d(material.clone()),
+            Transform::from_translation(position.extend(0.)).with_scale(size.extend(1.)),
+        ));
+    }
 }
 
 impl Plugin for BordersPlugin {

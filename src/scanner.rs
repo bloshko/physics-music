@@ -1,79 +1,49 @@
 use bevy::{color::palettes::basic::PURPLE, prelude::*, window::PrimaryWindow};
 use bevy_rapier2d::prelude::*;
 
-use crate::cursor_position::CursorWorldPosition;
+const SCANNER_SPEED: f32 = 200.;
+const SCANNER_WIDTH: f32 = 10.;
 
 pub struct ScannerPlugin;
 
-#[allow(dead_code)]
-struct Boundaries {
-    left: f32,
-    right: f32,
-    top: f32,
-    bottom: f32,
-}
-
 #[derive(Component)]
+#[require(Sensor, Collider::cuboid(0.5, 0.5))]
 pub struct Scanner {
-    scanning_boundaries: Boundaries,
-}
-
-#[allow(dead_code)]
-fn move_scanner_with_cursor(
-    mut q_scanner_transform: Query<&mut Transform, With<Scanner>>,
-    cursor_world_position: Res<CursorWorldPosition>,
-) {
-    let mut scanner_transform = q_scanner_transform.single_mut().unwrap();
-
-    scanner_transform.translation = cursor_world_position.0.extend(0.);
-}
-
-fn scan_from_left_to_right(mut q_scanner: Query<(&mut Transform, &Scanner)>, time: Res<Time>) {
-    let scanner_speed = 200.;
-
-    let (mut transform, scanner) = q_scanner.single_mut().unwrap();
-
-    if transform.translation.x > scanner.scanning_boundaries.right {
-        transform.translation.x = 0.;
-    } else {
-        transform.translation.x += scanner_speed * time.delta_secs()
-    }
+    start_x: f32,
+    end_x: f32,
 }
 
 fn setup(
     mut commands: Commands,
+    window: Single<&Window, With<PrimaryWindow>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    q_window: Query<&Window, With<PrimaryWindow>>,
 ) {
-    let mesh = meshes.add(Rectangle::default());
-    let material = materials.add(Color::from(PURPLE));
-    let window = q_window.single();
-
-    let window_resolution = window.unwrap().resolution.clone();
-
-    let scanner_height = window_resolution.height();
-    let scanning_boundaries = Boundaries {
-        left: 0.,
-        right: window_resolution.width(),
-        top: scanner_height,
-        bottom: 0.,
-    };
+    let window_size = window.resolution.size();
 
     commands.spawn((
-        Mesh2d(mesh),
-        MeshMaterial2d(material),
-        Transform {
-            translation: Vec3::new(0., scanner_height / 2., 0.),
-            scale: Vec3::new(10., scanner_height, 0.),
-            ..default()
-        },
-        Collider::cuboid(0.5, 0.5),
-        Sensor,
         Scanner {
-            scanning_boundaries,
+            start_x: 0.,
+            end_x: window_size.x,
         },
+        Mesh2d(meshes.add(Rectangle::default())),
+        MeshMaterial2d(materials.add(Color::from(PURPLE))),
+        Transform::from_xyz(0., window_size.y / 2., 0.).with_scale(Vec3::new(
+            SCANNER_WIDTH,
+            window_size.y,
+            1.,
+        )),
     ));
+}
+
+fn scan_from_left_to_right(scanner: Single<(&mut Transform, &Scanner)>, time: Res<Time>) {
+    let (mut transform, scanner) = scanner.into_inner();
+
+    if transform.translation.x > scanner.end_x {
+        transform.translation.x = scanner.start_x;
+    } else {
+        transform.translation.x += SCANNER_SPEED * time.delta_secs();
+    }
 }
 
 impl Plugin for ScannerPlugin {

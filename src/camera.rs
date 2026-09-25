@@ -5,26 +5,15 @@ pub struct MainCameraPlugin;
 #[derive(Component)]
 pub struct MainCamera;
 
-fn setup(mut commands: Commands, q_window: Query<&Window, With<PrimaryWindow>>) {
-    let window = q_window.single().unwrap();
+fn setup(mut commands: Commands, window: Single<&Window, With<PrimaryWindow>>) {
+    let window_size = window.resolution.size();
 
-    info!(
-        "Window width: {} height: {}",
-        window.resolution.width(),
-        window.resolution.height()
-    );
+    info!("Window width: {} height: {}", window_size.x, window_size.y);
 
     commands.spawn((
-        Camera2d,
-        Transform {
-            translation: Vec3::new(
-                window.resolution.width() / 2.,
-                window.resolution.height() / 2.,
-                0.,
-            ),
-            ..default()
-        },
         MainCamera,
+        Camera2d,
+        Transform::from_translation((window_size / 2.).extend(0.)),
     ));
 }
 
