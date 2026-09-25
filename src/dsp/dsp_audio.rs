@@ -11,8 +11,6 @@ pub struct DspAudio {
 }
 
 impl Decodable for DspAudio {
-    type DecoderItem = <DspDecoder as Iterator>::Item;
-
     type Decoder = DspDecoder;
 
     fn decoder(&self) -> Self::Decoder {

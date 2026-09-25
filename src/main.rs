@@ -16,7 +16,7 @@ fn main() {
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: String::from("Title"),
-                resolution: (500., 300.).into(),
+                resolution: (500, 300).into(),
                 decorations: false,
                 focused: false,
                 resizable: false,

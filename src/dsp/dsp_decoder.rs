@@ -1,4 +1,5 @@
 use bevy::audio::Source;
+use core::num::NonZero;
 use core::time::Duration;
 use fundsp::prelude::*;
 
@@ -9,14 +10,14 @@ pub struct DspDecoder {
     // current_process: f32,
     // progress_per_frame: f32,
     // period: f32,
-    sample_rate: u32,
+    sample_rate: NonZero<u32>,
     pending_r_sample: Option<f32>,
     trigger: Arc<AtomicBool>,
 }
 
 impl DspDecoder {
     pub fn new(audio_unit: Box<dyn AudioUnit>, trigger: Arc<AtomicBool>) -> Self {
-        let sample_rate = 44_100;
+        let sample_rate = NonZero::new(44_100).unwrap();
 
         DspDecoder {
             audio_unit,
@@ -52,15 +53,15 @@ impl Iterator for DspDecoder {
 }
 
 impl Source for DspDecoder {
-    fn current_frame_len(&self) -> Option<usize> {
+    fn current_span_len(&self) -> Option<usize> {
         None
     }
 
-    fn channels(&self) -> u16 {
-        2
+    fn channels(&self) -> NonZero<u16> {
+        NonZero::new(2).unwrap()
     }
 
-    fn sample_rate(&self) -> u32 {
+    fn sample_rate(&self) -> NonZero<u32> {
         self.sample_rate
     }
 

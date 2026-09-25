@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bevy = { version = "0.16", features = ["dynamic_linking"] }
-bevy_rapier2d = "0.30"
+bevy = { version = "0.19", features = ["dynamic_linking"] }
+bevy_rapier2d = "0.36"
 fundsp = "0.18.1"
 rand = "0.9.1"
 
@@ -17,3 +17,8 @@ opt-level = 1
 # Enable a large amount of optimization in the dev profile for dependencies.
 [profile.dev.package."*"]
 opt-level = 3
+
+# objc2 0.5 (via winit 0.30) panics on macOS 26 when its debug-only
+# message type verification is enabled.
+[profile.dev.package.objc2]
+debug-assertions = false

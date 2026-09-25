@@ -161,7 +161,7 @@ fn handle_pulse(
 
 fn handle_scanner_collision(
     mut commands: Commands,
-    mut collision_events: EventReader<CollisionEvent>,
+    mut collision_events: MessageReader<CollisionEvent>,
     q_sound_object: Query<(&SoundObjectUIState, &SoundObject)>,
     q_scanner: Query<Entity, With<Scanner>>,
     dsp_res: Res<Assets<DspAudio>>,
